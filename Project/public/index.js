@@ -14,7 +14,7 @@ function displayResults(images) {
     resultGallery.innerHTML = ''; // Clear any existing images
     images.forEach(imagePath => {
         const img = document.createElement('img');
-        img.src = `http://localhost:8000/Images/${imagePath}`;
+        img.src = `/Images/${imagePath}`;
         img.alt = imagePath;
         img.style.maxWidth = '150px'; // Adjust size as needed
         img.style.margin = '5px';
@@ -39,7 +39,7 @@ function uploadImage(file, isSearch) {
         uploadStatus.textContent = 'Image Uploaded Succesfully';
     }
 
-    const endpoint = isSearch ? "http://localhost:8000/search" : "http://localhost:8000/upload";
+    const endpoint = isSearch ? "/api/search" : "/api/upload";
 
     // Make a POST request to the server with form data
     fetch(endpoint, {
