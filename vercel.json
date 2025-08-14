@@ -1,0 +1,40 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "Project/public/**/*",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "Project/api/**/*.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "Project/Images/**/*",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/Project/api/$1"
+    },
+    {
+      "src": "/Images/(.*)",
+      "dest": "/Project/Images/$1"
+    },
+    {
+      "src": "^/$",
+      "dest": "/Project/public/index.html"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/Project/public/$1"
+    }
+  ],
+  "functions": {
+    "Project/api/**/*.js": {
+      "maxDuration": 30
+    }
+  }
+}
