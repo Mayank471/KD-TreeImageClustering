@@ -66,7 +66,25 @@ function writeJsonFile(filePath, data) {
 // Endpoint for handling image uploads and search
 
 app.post('/upload', upload.single('image'), async (req, res) => {
-    });
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'No file uploaded' });
+        }
+        // Optionally update histogram database (recompute for all images)
+        // Note: existing histogram.exe scans the Images directory, so no args
+        const histogramExePath = path.join(__dirname, 'histogram.exe');
+        try {
+            await runCommand(`"${histogramExePath}"`);
+        } catch (e) {
+            // Non-fatal for upload; just log
+            console.error('Histogram update failed for upload:', e.message);
+        }
+        return res.json({ success: true, message: 'Image uploaded successfully' });
+    } catch (err) {
+        console.error('Upload error:', err);
+        return res.status(500).json({ success: false, message: 'Upload failed' });
+    }
+});
 app.post('/search', upload.single('image'), async (req, res) => {
     const { number } = req.body;
 
@@ -83,15 +101,16 @@ app.post('/search', upload.single('image'), async (req, res) => {
 
         // Step 2: Run histogram.exe and wait for completion
         const histogramExePath = path.join(__dirname, 'histogram.exe');
-        await runCommand(`"${histogramExePath}" "${path.join(uploadDir, uploadedFileName)}"`);
+    // Note: existing histogram.exe scans the Images directory, so no args
+    await runCommand(`"${histogramExePath}"`);
 
         // Step 3: Run project.exe after histogram.exe completes
         const projectExePath = path.join(__dirname, 'project.exe');
         await runCommand(`"${projectExePath}"`);
 
         // Step 4: Read the updated data from input.json and send to client
-        const jsonData = JSON.parse(fs.readFileSync(jsonFilePath, 'utf8'));
-    res.status(200).json(jsonData);
+    const jsonData = JSON.parse(fs.readFileSync(jsonFilePath, 'utf8'));
+    res.status(200).json({ success: true, message: 'Search complete', ...jsonData });
    
       
     } catch (error) {

@@ -1,11 +1,16 @@
-RunProject: KdTree.o project.o
-	g++ KdTree.o project.o -o RunProject
+CC = g++
+# Use a broadly supported standard for Windows MinGW; adjust if your compiler is newer
+CXXFLAGS = -std=gnu++17 -O2 -Wall
 
-KdTree.o: KdTree.cpp
-	g++ -std=c++20 -c KdTree.cpp
+all: project.exe histogram.exe
 
-project.o: project.cpp
-	g++ -std=c++20 -c project.cpp
+project.exe: project.cpp KdTree.hpp json.hpp
+	$(CC) $(CXXFLAGS) project.cpp -o project.exe
 
+histogram.exe: histogram.cpp json.hpp stb_image.h
+	$(CC) $(CXXFLAGS) histogram.cpp -o histogram.exe
+
+.PHONY: clean
 clean:
-	rm *.o
+	-del /Q *.o 2> NUL
+	-del /Q *.exe 2> NUL
