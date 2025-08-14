@@ -31,6 +31,19 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 app.use('/Images', express.static('Images'));
+// Verify required native executables exist
+const histogramExePath = path.join(__dirname, 'histogram.exe');
+const projectExePath = path.join(__dirname, 'project.exe');
+let executablesReady = true;
+if (!fs.existsSync(histogramExePath)) {
+    console.error(`Missing executable: ${histogramExePath}`);
+    executablesReady = false;
+}
+if (!fs.existsSync(projectExePath)) {
+    console.error(`Missing executable: ${projectExePath}`);
+    executablesReady = false;
+}
+
 
 // Utility function to execute a command with a promise
 function runCommand(command) {
@@ -70,9 +83,11 @@ app.post('/upload', upload.single('image'), async (req, res) => {
         if (!req.file) {
             return res.status(400).json({ success: false, message: 'No file uploaded' });
         }
+        if (!executablesReady) {
+            return res.status(500).json({ success: false, message: 'Server not ready: required executables are missing.' });
+        }
         // Optionally update histogram database (recompute for all images)
         // Note: existing histogram.exe scans the Images directory, so no args
-        const histogramExePath = path.join(__dirname, 'histogram.exe');
         try {
             await runCommand(`"${histogramExePath}"`);
         } catch (e) {
@@ -91,6 +106,9 @@ app.post('/search', upload.single('image'), async (req, res) => {
     if (!req.file || !number) {
         return res.status(400).json({ success: false, message: 'File and number are required' });
     }
+    if (!executablesReady) {
+        return res.status(500).json({ success: false, message: 'Server not ready: required executables are missing.' });
+    }
 
     const uploadedFileName = req.file.originalname;
     const data = { target: uploadedFileName, num: parseInt(number) };
@@ -100,12 +118,10 @@ app.post('/search', upload.single('image'), async (req, res) => {
         await writeJsonFile(jsonFilePath, data);
 
         // Step 2: Run histogram.exe and wait for completion
-        const histogramExePath = path.join(__dirname, 'histogram.exe');
     // Note: existing histogram.exe scans the Images directory, so no args
     await runCommand(`"${histogramExePath}"`);
 
-        // Step 3: Run project.exe after histogram.exe completes
-        const projectExePath = path.join(__dirname, 'project.exe');
+    // Step 3: Run project.exe after histogram.exe completes
         await runCommand(`"${projectExePath}"`);
 
         // Step 4: Read the updated data from input.json and send to client

@@ -3,7 +3,12 @@
 #include <string>
 #include <algorithm>
 #include <fstream>
-#include <filesystem>
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <dirent.h>
+#include <sys/stat.h>
+#endif
 // nlohmann::json single-header library placed as json.hpp in repo
 #include "json.hpp"
 
@@ -69,7 +74,6 @@ bool hasValidImageExtension(const string &fileName)
 
 int main(int argc, char** argv)
 {
-    namespace fs = std::filesystem;
     const string outputFilePath = "output.json"; // Output JSON file
 
     // Load existing JSON if present to allow incremental updates
@@ -87,38 +91,64 @@ int main(int argc, char** argv)
 
     // If an argument is provided, process only that image; otherwise process all in Images/
     if (argc >= 2) {
-        fs::path imgPath(argv[1]);
-        if (!fs::exists(imgPath)) {
-            cerr << "Image not found: " << imgPath.string() << endl;
-            return 1;
-        }
-        string fileName = imgPath.filename().string();
+        string imgPath(argv[1]);
+        string fileName;
+        size_t pos = imgPath.find_last_of("/\\");
+        fileName = (pos == string::npos) ? imgPath : imgPath.substr(pos + 1);
         if (!hasValidImageExtension(fileName)) {
             cerr << "Not an image file: " << fileName << endl;
             return 1;
         }
-        cout << "Processing image: " << imgPath.string() << endl;
-        vector<double> histogram = calculateColorHistogram(imgPath.string());
+        cout << "Processing image: " << imgPath << endl;
+        vector<double> histogram = calculateColorHistogram(imgPath);
         if (!histogram.empty()) {
             root[fileName] = histogram;
         }
     } else {
-        const fs::path imagesDir = fs::path("Images");
-        if (!fs::exists(imagesDir) || !fs::is_directory(imagesDir)) {
-            cerr << "Error: Images directory not found at: " << imagesDir.string() << endl;
+        const string directoryPath = "Images";
+#ifdef _WIN32
+        // Windows: iterate files using Win32 ANSI API
+        WIN32_FIND_DATAA ffd;
+        std::string pattern = directoryPath + "\\*";
+        HANDLE hFind = FindFirstFileA(pattern.c_str(), &ffd);
+        if (hFind == INVALID_HANDLE_VALUE) {
+            cerr << "Error: Images directory not found at: " << directoryPath << endl;
             return 1;
         }
-        for (const auto& entry : fs::directory_iterator(imagesDir)) {
-            if (!entry.is_regular_file()) continue;
-            const fs::path p = entry.path();
-            string fileName = p.filename().string();
+
+        do {
+            if (ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
+            string fileName = ffd.cFileName;
             if (!hasValidImageExtension(fileName)) continue;
-            cout << "Processing image: " << p.string() << endl;
-            vector<double> histogram = calculateColorHistogram(p.string());
+            string fullPath = directoryPath + "\\" + fileName;
+            cout << "Processing image: " << fullPath << endl;
+            vector<double> histogram = calculateColorHistogram(fullPath);
+            if (!histogram.empty()) {
+                root[fileName] = histogram;
+            }
+        } while (FindNextFileA(hFind, &ffd) != 0);
+        FindClose(hFind);
+#else
+        // POSIX: iterate using dirent
+        DIR* dir = opendir(directoryPath.c_str());
+        if (!dir) {
+            cerr << "Error opening directory: " << directoryPath << endl;
+            return 1;
+        }
+        dirent* ent;
+        while ((ent = readdir(dir)) != nullptr) {
+            string fileName = ent->d_name;
+            if (fileName == "." || fileName == ".." || fileName[0] == '.') continue;
+            if (!hasValidImageExtension(fileName)) continue;
+            string fullPath = directoryPath + "/" + fileName;
+            cout << "Processing image: " << fullPath << endl;
+            vector<double> histogram = calculateColorHistogram(fullPath);
             if (!histogram.empty()) {
                 root[fileName] = histogram;
             }
         }
+        closedir(dir);
+#endif
     }
 
     // Write histogram data to JSON file (overwrite with updated content)

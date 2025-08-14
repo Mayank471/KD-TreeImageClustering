@@ -47,24 +47,24 @@ function uploadImage(file, isSearch) {
         body: formData // Send the FormData instead of JSON
     })
     .then(response => {
-        if (!response.ok) {
-            throw new Error('Network response was not ok');
-        }
-        return response.json();
+        return response.json().then(body => ({ ok: response.ok, body }));
     })
-    .then(data => {
-        console.log('JSON data', data);
+    .then(({ ok, body }) => {
+        console.log('JSON data', body);
       
     if (isSearch) {
-        
-        searchStatus.textContent = data.message
-        if ( data.numbers.length > 0) {
-            displayResults(data.numbers); // Pass the array to displayResults
+        searchStatus.textContent = body.message || '';
+        if (!ok) {
+            searchStatus.textContent = body.message || 'Search failed';
+            return;
+        }
+        if (body.numbers && body.numbers.length > 0) {
+            displayResults(body.numbers); // Pass the array to displayResults
         } else {
             searchStatus.textContent = 'No results ';
         }
     } else {        
-        uploadStatus.textContent = data.message;
+        uploadStatus.textContent = body.message || (ok ? 'Upload complete' : 'Upload failed');
     }
     })
     .catch(error => {
