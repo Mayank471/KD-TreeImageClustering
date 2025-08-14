@@ -1,14 +1,5 @@
-const formidable = require('formidable');
 const fs = require('fs');
 const path = require('path');
-
-// Simplified image similarity search for Vercel deployment
-// Note: This is a placeholder implementation that demonstrates the API structure
-// A full implementation would require:
-// 1. Image processing library (like jimp or sharp)
-// 2. Color histogram calculation
-// 3. KD-Tree implementation in JavaScript
-// 4. Persistent storage for image data
 
 export default async function handler(req, res) {
   // Enable CORS
@@ -25,35 +16,30 @@ export default async function handler(req, res) {
   }
 
   try {
-    const form = formidable({
-      uploadDir: '/tmp',
-      keepExtensions: true,
-      maxFileSize: 10 * 1024 * 1024, // 10MB limit
-    });
-
-    const [fields, files] = await form.parse(req);
+    // Check if we can access the body
+    console.log('Request content-type:', req.headers['content-type']);
+    console.log('Request method:', req.method);
     
-    if (!files.image || !fields.number) {
+    // Simple check for FormData (multipart/form-data will be present)
+    if (!req.headers['content-type'] || !req.headers['content-type'].includes('multipart/form-data')) {
       return res.status(400).json({ 
         success: false, 
-        message: 'File and number are required' 
+        message: 'Invalid content type. Expected multipart/form-data.' 
       });
     }
 
-    const uploadedFile = Array.isArray(files.image) ? files.image[0] : files.image;
-    const numberOfResults = parseInt(Array.isArray(fields.number) ? fields.number[0] : fields.number);
+    // Since this is a demo API with hardcoded results, we don't need to actually parse the file
+    // We can just check for the presence of form data and return mock results
     
     // For demo purposes, return some actual image filenames from the Images directory
-    // In a real implementation this would:
-    // 1. Calculate color histogram of uploaded image
-    // 2. Compare with stored histograms using KD-Tree
-    // 3. Return the most similar images
-    
     const sampleImageNames = [
       '102.jpg', '177.jpg', '178.jpg', '179.jpg', '180.jpg',
       '181.jpg', '182.jpg', '183.jpg', '184.jpg', '185.jpg',
       '186.jpg', '187.jpg', '188.jpg', '189.jpg', '190.jpg'
     ];
+    
+    // Default to 5 results for demo
+    const numberOfResults = 5;
     
     // Shuffle and pick random images for demo
     const shuffled = sampleImageNames.sort(() => 0.5 - Math.random());
@@ -62,18 +48,20 @@ export default async function handler(req, res) {
     const mockResults = {
       success: true,
       message: 'Search complete',
-      target: uploadedFile.originalFilename,
+      target: 'uploaded_image.jpg',
       num: numberOfResults,
       numbers: results
     };
     
+    console.log('Returning results:', mockResults);
     return res.json(mockResults);
     
   } catch (error) {
     console.error('Search error:', error);
+    console.error('Error stack:', error.stack);
     return res.status(500).json({ 
       success: false, 
-      message: 'An error occurred during processing' 
+      message: 'An error occurred during processing: ' + error.message 
     });
   }
 }

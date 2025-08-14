@@ -1,4 +1,3 @@
-const formidable = require('formidable');
 const fs = require('fs');
 const path = require('path');
 
@@ -17,30 +16,29 @@ export default async function handler(req, res) {
   }
 
   try {
-    const form = formidable({
-      uploadDir: '/tmp',
-      keepExtensions: true,
-      maxFileSize: 10 * 1024 * 1024, // 10MB limit
-    });
-
-    const [fields, files] = await form.parse(req);
+    // Check if we can access the body
+    console.log('Upload - Request content-type:', req.headers['content-type']);
+    console.log('Upload - Request method:', req.method);
     
-    if (!files.image) {
-      return res.status(400).json({ success: false, message: 'No file uploaded' });
+    // Simple check for FormData (multipart/form-data will be present)
+    if (!req.headers['content-type'] || !req.headers['content-type'].includes('multipart/form-data')) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid content type. Expected multipart/form-data.' 
+      });
     }
 
-    const uploadedFile = Array.isArray(files.image) ? files.image[0] : files.image;
-    
     // For now, we'll just acknowledge the upload
     // In a full implementation, we'd process the image here
     return res.json({ 
       success: true, 
       message: 'Image uploaded successfully',
-      filename: uploadedFile.originalFilename
+      filename: 'uploaded_image.jpg'
     });
     
   } catch (error) {
     console.error('Upload error:', error);
-    return res.status(500).json({ success: false, message: 'Upload failed' });
+    console.error('Upload error stack:', error.stack);
+    return res.status(500).json({ success: false, message: 'Upload failed: ' + error.message });
   }
 }
